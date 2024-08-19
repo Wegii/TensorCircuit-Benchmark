@@ -1,7 +1,10 @@
 import tensorcircuit as tc
+import pennylane as qml
+import torch
+from line_profiler import profile
 
-
-def qml_ys(x, weights, nlayers):
+@profile
+def qml_ys_tc(x, weights, nlayers):
     n = 9
     weights = tc.backend.cast(weights, "complex128")
     x = tc.backend.cast(x, "complex128")
@@ -25,3 +28,38 @@ def qml_ys(x, weights, nlayers):
         ypreds.append(ypred)
 
     return tc.backend.stack(ypreds)
+
+
+@profile
+def qml_ys_pl(x: torch.tensor, weights: torch.nn.Parameter, n_qubits: int = 9, n_layers: int = 3):
+    dev = qml.device('cirq.simulator', wires=n_qubits)
+
+    @qml.qnode(dev, interface='torch')
+    def circuit(x: torch.tensor, weights: torch.nn.Parameter, n_qubits: int, n_layers: int):
+        for i in range(n_qubits):
+            qml.RX(x[i], i)
+    
+        for j in range(n_layers):
+            for i in range(n_qubits - 1):
+                qml.CNOT([i, i + 1])
+            for i in range(n_qubits):
+                qml.RX(weights[2 * j, i], i)
+                qml.RY(weights[2 * j + 1, i], i)
+    
+        ypreds = []
+        for i in range(n_qubits):
+            ypred = qml.expval(qml.PauliZ(i))
+            ypreds.append(ypred)
+            
+        return ypreds
+        
+    ret = circuit(x = x,
+                  weights = weights,
+                  n_qubits = n_qubits,
+                  n_layers = n_layers)
+    
+    # Normalize to [0, 1]
+    for i in range(n_qubits):
+        ret[i] = (torch.real(ret[i]) + 1)/2.0
+
+    return torch.stack(ret, dim=0)

@@ -1,0 +1,44 @@
+Timer unit: 1e-09 s
+
+Total time: 6.41323 s
+File: /nfs/c3po/home/ge36boj/tensorcircuit/TensorCircuitBenchmark/benchmark/pennylane_pytorch.py
+Function: qml_ys at line 50
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+    50                                           @profile
+    51                                           def qml_ys(x, weights, nlayers=3):
+    52        33      11522.0    349.2      0.0      nlayers = 3
+    53        33       6853.0    207.7      0.0      n = 9
+    54        33  451473865.0    1e+07      7.0      dev = qml.device('cirq.simulator', wires=n)
+    55                                           
+    56        33      75205.0   2278.9      0.0      @qml.qnode(dev, interface='torch')
+    57        33    4429562.0 134229.2      0.1      def circuit(x, weights, nlayers):
+    58                                                   n = 9
+    59                                                   for i in range(n):
+    60                                                       qml.RX(x[i], i)
+    61                                               
+    62                                                   for j in range(nlayers):
+    63                                                       for i in range(n - 1):
+    64                                                           qml.CNOT([i, i + 1])
+    65                                                       for i in range(n):
+    66                                                           qml.RX(weights[2 * j, i], i)
+    67                                                           qml.RY(weights[2 * j + 1, i], i)
+    68                                               
+    69                                                   ypreds = []
+    70                                                   for i in range(n):
+    71                                                       ypred = qml.expval(qml.PauliZ(i))
+    72                                                       ypreds.append(ypred)
+    73                                                   return ypreds
+    74                                                   
+    75        33     484754.0  14689.5      0.0      print(f"Input has shape {x.shape}")
+    76        33 5955495956.0    2e+08     92.9      ret = circuit(x, weights, nlayers)
+    77        33     377449.0  11437.8      0.0      print(len(ret))
+    78                                               
+    79                                               # Normalize to [0, 1]
+    80                                               #for i in range(n):
+    81                                               #    ret[i] = (torch.real(ret[i]) + 1)/2.0
+    82                                           
+    83        33     872202.0  26430.4      0.0      return torch.stack(ret, dim=0)
+
+  6.41 seconds - /nfs/c3po/home/ge36boj/tensorcircuit/TensorCircuitBenchmark/benchmark/pennylane_pytorch.py:50 - qml_ys
