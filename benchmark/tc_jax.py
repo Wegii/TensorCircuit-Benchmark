@@ -10,22 +10,53 @@ from line_profiler import profile
 
 
 @profile
-def qml_hybrid_loss(x, y, params, nlayers):
+def qml_hybrid_loss(x, y, params, n_layers: int = 3):
+    """ Calculate cost based on neural network and quantum circuit output
+
+    :param x: Input to Circuit
+    :param y: Labels for output
+    :param params: Parameters for neural network and quantum circuit
+    :param n_layers: Number of layers in circuit
+    :return: Loss
+    """
+
     weights = params["qweights"]
     w = params["cweights:w"]
     b = params["cweights:b"]
-    ypred = qml_ys_tc(x, weights, nlayers)
-    ypred = tc.backend.reshape(ypred, [-1, 1])
-    ypred = w @ ypred + b
-    ypred = jax.nn.sigmoid(ypred)
-    ypred = ypred[0]
+
+    # Execute circuit
+    y_pred = qml_ys_tc(x,
+                      weights,
+                      n_qubits = 9,
+                      n_layers = n_layers)
+
+    # Apply linear layer
+    y_pred = tc.backend.reshape(y_pred, [-1, 1])
+    y_pred = w @ y_pred + b
+    y_pred = jax.nn.sigmoid(y_pred)
+    y_pred = y_pred[0]
 
     # BCE loss
-    loss = -y * tc.backend.log(ypred) - (1 - y) * tc.backend.log(1 - ypred)
+    loss = -y * tc.backend.log(y_pred) - (1 - y) * tc.backend.log(1 - y_pred)
     return loss
 
 
-def training_loop_timed(dataset, params, nlayers, optimizer, opt_state, loss):
+def training_loop_timed(dataset, params, optimizer, opt_state, loss, n_qubits: int = 9, n_layers: int = 3):
+    """ Start timed training loop
+
+    The training loop consists of quantum circuit and neural network evaluation. This is followed by optimization and
+    parameter updates.
+
+    :param dataset: Dataset to work with
+    :param params: NN and Circuit parameters
+    :param optimizer: Optimizer
+    :param opt_state: Optimizer state
+    :param loss: Loss function
+    :param n_qubits: Number of qubits in the circuit
+    :param n_layers: Number of layers in the circuit
+    :return: Execution duration for different steps
+    """
+
     loss_times = []
     opt_times = []
     update_times = []
@@ -34,17 +65,20 @@ def training_loop_timed(dataset, params, nlayers, optimizer, opt_state, loss):
     for i, (xs, ys) in enumerate(dataset):
         xs = jnp.array(xs)
         ys = jnp.array(ys)
-        
+
+        # Time circuit, nn and loss function
         t0 = time.time()
-        v, grads = loss(xs, ys, params, nlayers)
+        v, grads = loss(xs, ys, params, n_layers)
         t1 = time.time()
         loss_times.append(t1 - t0)
 
+        # Time optimization step
         t0 = time.time()
         updates, opt_state = optimizer.update(grads, opt_state)
         t1 = time.time()
         opt_times.append(t1 - t0)
 
+        # Time gradient update
         t0 = time.time()
         params = optax.apply_updates(params, updates)
         t1 = time.time()
@@ -65,6 +99,16 @@ def training_loop_timed(dataset, params, nlayers, optimizer, opt_state, loss):
            )
     
 def training_loop(dataset, params, nlayers, optimizer, opt_state, loss):
+    """ Start training loop
+
+    :param dataset: Dataset to work with
+    :param params: NN and Circuit parameters
+    :param optimizer: Optimizer
+    :param opt_state: Optimizer state
+    :param loss: Loss function
+    :return: None
+    """
+
     for i, (xs, ys) in enumerate(dataset):
         xs = jnp.array(xs)
         ys = jnp.array(ys)
@@ -81,11 +125,18 @@ def training_loop(dataset, params, nlayers, optimizer, opt_state, loss):
 
 
 def tc_jax_benchmark(batch_size: int = 32, n_qubits: int = 9, n_layers: int = 3, profile_path: str = ""):
+    """ Start the benchmark for the quantum circuit and neural network with jax and tensorcircuit
+
+    :param batch_size: Batch size of dataset
+    :param n_qubits: Number of qubits in the Circuit
+    :param n_layers: Number of layers in the Circuit
+    :param profile_path: Path to write JAX profiles
+    :return: Different execution statistics
+    """
+
     # Set backend and precision to double
     tc.set_backend("jax")
     tc.set_dtype("complex128")
-
-    nlayers = n_layers
     
     key = jax.random.PRNGKey(42)
     key, *subkeys = jax.random.split(key, num=4)
@@ -112,7 +163,13 @@ def tc_jax_benchmark(batch_size: int = 32, n_qubits: int = 9, n_layers: int = 3,
         with jax.profiler.trace(profile_path, create_perfetto_link=True):
             training_loop(mnist_data, params, n_layers, optimizer, qml_hybrid_loss_vag)
     else:
-        loss, opt, update = training_loop_timed(mnist_data, params, n_layers, optimizer, opt_state, qml_hybrid_loss_vag)
+        loss, opt, update = training_loop_timed(dataset = mnist_data,
+                                                params = params,
+                                                optimizer = optimizer,
+                                                opt_state = opt_state,
+                                                loss = qml_hybrid_loss_vag,
+                                                n_layers=n_layers,
+                                                n_qubits=n_qubits)
 
     t1 = time.time()
     

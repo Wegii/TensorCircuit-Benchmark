@@ -4,24 +4,32 @@ import torch
 from line_profiler import profile
 
 @profile
-def qml_ys_tc(x, weights, nlayers):
-    n = 9
+def qml_ys_tc(x, weights, n_qubits: int = 9, n_layers: int = 3):
+    """ Execute a parametrized quantum circuit in TensorCircuit
+
+    :param x: Input to circuit
+    :param weights: Weights for gates in the circuit
+    :param n_qubits: Number of qubits in the circuit
+    :param n_layers: Number of layers in the circuit
+    :return: Expectation values
+    """
+
     weights = tc.backend.cast(weights, "complex128")
     x = tc.backend.cast(x, "complex128")
-    c = tc.Circuit(n)
+    c = tc.Circuit(n_qubits)
 
-    for i in range(n):
+    for i in range(n_qubits):
         c.rx(i, theta=x[i])
 
-    for j in range(nlayers):
-        for i in range(n - 1):
+    for j in range(n_layers):
+        for i in range(n_qubits - 1):
             c.cnot(i, i + 1)
-        for i in range(n):
+        for i in range(n_qubits):
             c.rx(i, theta=weights[2 * j, i])
             c.ry(i, theta=weights[2 * j + 1, i])
 
     ypreds = []
-    for i in range(n):
+    for i in range(n_qubits):
         ypred = c.expectation([tc.gates.z(), (i,)])
         ypred = tc.backend.real(ypred)
         ypred = (tc.backend.real(ypred) + 1) / 2.0
@@ -32,6 +40,14 @@ def qml_ys_tc(x, weights, nlayers):
 
 @profile
 def qml_ys_pl(x: torch.tensor, weights: torch.nn.Parameter, n_qubits: int = 9, n_layers: int = 3):
+    """ Execute a parametrized quantum circuit in Pennylane
+
+    :param x: Input to circuit
+    :param weights: Weights for gates in the circuit
+    :param n_qubits: Number of qubits in the circuit
+    :param n_layers: Number of layers in the circuit
+    :return: Expectation values
+    """
     dev = qml.device('cirq.simulator', wires=n_qubits)
 
     @qml.qnode(dev, interface='torch')

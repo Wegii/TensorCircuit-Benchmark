@@ -11,6 +11,8 @@ from line_profiler import profile
 
 
 class qNet(torch.nn.Module):
+    """ Quantum Neural Network consisting of a Quantum Circuit """
+
     def __init__(self, n_qubits: int = 9, n_layers: int = 3):
         super().__init__()
 
@@ -28,6 +30,14 @@ class qNet(torch.nn.Module):
 
 
 def pl_pt_benchmark(batch_size: int = 32, n_qubits: int = 9, n_layers: int = 3):
+    """ Start the benchmark for the quantum circuit and neural network with pytorch and pennylane
+
+    :param batch_size: Batch size of dataset
+    :param n_qubits: Number of qubits in the Circuit
+    :param n_layers: Number of layers in the Circuit
+    :return: None
+    """
+
     mnist_data = load_mnist_pt(batch_size)
 
     # Construct circuit and network

@@ -8,6 +8,15 @@ class bcolors:
     ENDC = '\033[0m'
     
 def _filter_pair(x, y, a, b):
+    """ Filter a data based on attributes
+
+    :param x: X values
+    :param y: Y values
+    :param a: lower range
+    :param b: upper range
+    :return:
+    """
+
     keep = (y == a) | (y == b)
     x, y = x[keep], y[keep]
     y = y == a
@@ -15,6 +24,11 @@ def _filter_pair(x, y, a, b):
 
 
 def _load_mnist():
+    """ Load MNIST dataset
+
+    :return: X and Y values of the MNIST dataset
+    """
+
     (x_train, y_train), (_, _) = tf.keras.datasets.mnist.load_data()
     x_train = x_train[..., np.newaxis] / 255.0
 
@@ -30,6 +44,12 @@ def _load_mnist():
 
 
 def load_mnist_tf(batch_size: int = 32):
+    """ Load MNIST for tensorflow
+
+    :param batch_size: Batch size of dataset
+    :return: Tensorflow Dataset
+    """
+
     x_train_tf, y_train_tf = _load_mnist()
 
     # Create tensorflow dataset
@@ -42,6 +62,12 @@ def load_mnist_tf(batch_size: int = 32):
 
 
 def load_mnist_pt(batch_size: int = 32):
+    """ Load MNIST for pytorch
+
+    :param batch_size: Batch size of dataset
+    :return: Pytorch Dataset
+    """
+
     import torch
     from torch.utils.data import DataLoader, TensorDataset
 
