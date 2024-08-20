@@ -55,22 +55,23 @@ def pl_pt_benchmark(batch_size: int = 32, n_qubits: int = 9, n_layers: int = 3):
         for i, (xs, ys) in enumerate(mnist_data):
             # Iterate over batch
             yps = []
-            for i in range(batch_size):
-                yp = qmodel(xs[i])
+            for j in range(batch_size):
+                yp = qmodel(xs[j])
                 yps.append(yp)
-                
-                if i%9 == 0:
-                    print(f"Executed {i}/{batch_size}")
+
 
             yps = torch.stack(yps)
 
             # Calculate loss over batch
-            loss = loss(
+            loss_ret = loss(
                 torch.reshape(yps, [batch_size, 1]), torch.reshape(ys, [batch_size, 1])
             )
             
-            loss.backward()
+            loss_ret.backward()
             optimizer.step()
+
+            if i%5 == 0:
+                print(f"Executed {i}/{len(mnist_data)}")
         
             print(loss)
 

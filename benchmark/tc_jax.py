@@ -97,7 +97,27 @@ def training_loop_timed(dataset, params, optimizer, opt_state, loss, n_qubits: i
             (jnp.mean(opt_times), jnp.std(opt_times)), 
             (jnp.mean(update_times), jnp.std(update_times))
            )
-    
+
+
+def circuit_loop(dataset, params, n_layers, loss):
+    """ Start circuit training loop
+
+    Same as training_loop_timed, but without any optimization and loss function.
+
+    :param dataset: Dataset to work with
+    :param params: NN and Circuit params
+    :param n_layers: Number of layers
+    :param loss: Loss function
+    :return: None
+    """
+
+    for i, (xs, ys) in enumerate(dataset):
+        xs = jnp.array(xs)
+        ys = jnp.array(ys)
+
+        v, grads = loss(xs, ys, params, n_layers)
+
+
 def training_loop(dataset, params, nlayers, optimizer, opt_state, loss):
     """ Start training loop
 
@@ -162,6 +182,7 @@ def tc_jax_benchmark(batch_size: int = 32, n_qubits: int = 9, n_layers: int = 3,
     if profile_path:
         with jax.profiler.trace(profile_path, create_perfetto_link=True):
             training_loop(mnist_data, params, n_layers, optimizer, qml_hybrid_loss_vag)
+
     else:
         loss, opt, update = training_loop_timed(dataset = mnist_data,
                                                 params = params,
@@ -170,6 +191,13 @@ def tc_jax_benchmark(batch_size: int = 32, n_qubits: int = 9, n_layers: int = 3,
                                                 loss = qml_hybrid_loss_vag,
                                                 n_layers=n_layers,
                                                 n_qubits=n_qubits)
+
+    # Run Circuit loop only
+    circuit_loop(dataset=mnist_data,
+                 params=params,
+                 loss=qml_hybrid_loss_vag,
+                 n_layers=n_layers
+                 )
 
     t1 = time.time()
     
